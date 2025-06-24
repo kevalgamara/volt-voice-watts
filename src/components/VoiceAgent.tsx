@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -127,9 +126,8 @@ Ready to start your solar journey? Reply to schedule your free home assessment!`
               <div className="flex space-x-2">
                 <Button 
                   onClick={isRecording ? handleEndCall : handleStartCall}
-                  className={isRecording ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"}
+                  className={`flex-1 ${isRecording ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"}`}
                   size="sm"
-                  className="flex-1"
                 >
                   {isRecording ? (
                     <>
