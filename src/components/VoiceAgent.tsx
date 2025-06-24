@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Phone, MessageSquare, Users, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Phone, MessageSquare, Users, Mic, MicOff, Volume2, VolumeX, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import CompanyDetailBar from "./CompanyDetailBar";
+import CallLogRecord from "./CallLogRecord";
+import { vapiService } from "../services/vapiService";
 
 const VoiceAgent = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -14,7 +17,41 @@ const VoiceAgent = () => {
   const [conversions, setConversions] = useState(7);
   const [currentMessage, setCurrentMessage] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [vapiApiKey, setVapiApiKey] = useState('');
+  const [showVapiSettings, setShowVapiSettings] = useState(false);
+  const [currentCall, setCurrentCall] = useState<any>(null);
   const { toast } = useToast();
+
+  // Call log records state
+  const [callRecords, setCallRecords] = useState([
+    {
+      id: '1',
+      clientName: 'John Smith',
+      phoneNumber: '+1 (555) 123-4567',
+      duration: '4:32',
+      status: 'completed' as const,
+      timestamp: '2 hours ago',
+      notes: 'Interested in solar installation'
+    },
+    {
+      id: '2',
+      clientName: 'Sarah Johnson',
+      phoneNumber: '+1 (555) 987-6543',
+      duration: '2:18',
+      status: 'converted' as const,
+      timestamp: '5 hours ago',
+      notes: 'Scheduled consultation'
+    },
+    {
+      id: '3',
+      clientName: 'Mike Wilson',
+      phoneNumber: '+1 (555) 456-7890',
+      duration: '0:45',
+      status: 'missed' as const,
+      timestamp: '1 day ago',
+      notes: 'No answer'
+    }
+  ]);
 
   const solarScript = {
     introduction: "Hi! I'm calling from SolarPro AI, your local solar energy specialist. I hope I'm catching you at a good time. We've been helping homeowners in your area save thousands on their electricity bills with solar panels. Have you ever considered going solar for your home?",
@@ -33,27 +70,68 @@ const VoiceAgent = () => {
     }
   };
 
-  const handleStartCall = () => {
-    setIsRecording(true);
-    setIsSpeaking(true);
-    
-    // Simulate AI speaking
-    toast({
-      title: "AI Agent Active",
-      description: "Starting solar consultation call...",
-    });
-    
-    // Simulate conversation flow
-    setTimeout(() => {
-      setIsSpeaking(false);
-      setCurrentMessage(solarScript.introduction);
-    }, 2000);
+  const handleStartCall = async () => {
+    if (vapiApiKey && whatsappNumber) {
+      try {
+        vapiService.setApiKey(vapiApiKey);
+        const callResponse = await vapiService.initiateCall({
+          phoneNumber: whatsappNumber,
+          customerName: 'Prospect',
+          companyName: 'SolarPro AI'
+        });
+        
+        setCurrentCall(callResponse);
+        setIsRecording(true);
+        setIsSpeaking(true);
+        
+        toast({
+          title: "Vapi.ai Call Started",
+          description: `AI agent is calling ${whatsappNumber}`,
+        });
+        
+        // Add to call records
+        const newRecord = {
+          id: callResponse.id,
+          clientName: 'New Prospect',
+          phoneNumber: whatsappNumber,
+          duration: '0:00',
+          status: 'completed' as const,
+          timestamp: 'Just now',
+          notes: 'Vapi.ai automated call'
+        };
+        setCallRecords(prev => [newRecord, ...prev]);
+        setCallsToday(prev => prev + 1);
+        
+      } catch (error) {
+        console.error('Vapi.ai call failed:', error);
+        toast({
+          title: "Call Failed",
+          description: "Please check your Vapi.ai API key and try again",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Fallback to simulation
+      setIsRecording(true);
+      setIsSpeaking(true);
+      
+      toast({
+        title: "AI Agent Active",
+        description: "Starting solar consultation call...",
+      });
+      
+      setTimeout(() => {
+        setIsSpeaking(false);
+        setCurrentMessage(solarScript.introduction);
+      }, 2000);
+    }
   };
 
   const handleEndCall = () => {
     setIsRecording(false);
     setIsSpeaking(false);
     setCurrentMessage('');
+    setCurrentCall(null);
     
     toast({
       title: "Call Ended",
@@ -86,7 +164,6 @@ const VoiceAgent = () => {
 
 Ready to start your solar journey? Reply to schedule your free home assessment!`;
 
-    // Simulate WhatsApp message sending
     console.log("Sending WhatsApp to:", whatsappNumber);
     console.log("Message:", message);
     
@@ -99,29 +176,62 @@ Ready to start your solar journey? Reply to schedule your free home assessment!`
     setWhatsappNumber('');
   };
 
+  const handleSaveCompanyDetails = (details: any) => {
+    console.log('Company details saved:', details);
+    // Here you would typically save to a database
+  };
+
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <Card className="w-80 shadow-2xl border-2 border-blue-200">
+      <Card className="w-96 shadow-2xl border-2 border-blue-200 max-h-[80vh] overflow-y-auto">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center justify-between">
             <span className="flex items-center space-x-2">
               <Phone className="h-5 w-5 text-blue-500" />
               <span>Solar AI Agent</span>
             </span>
-            <Badge variant={isRecording ? "default" : "secondary"}>
-              {isRecording ? "Active" : "Standby"}
-            </Badge>
+            <div className="flex items-center space-x-2">
+              <Badge variant={isRecording ? "default" : "secondary"}>
+                {isRecording ? "Active" : "Standby"}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowVapiSettings(!showVapiSettings)}
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         
         <CardContent className="space-y-4">
+          {/* Vapi.ai Settings */}
+          {showVapiSettings && (
+            <div className="space-y-2 border-b pb-4">
+              <Input
+                placeholder="Enter Vapi.ai API Key"
+                value={vapiApiKey}
+                onChange={(e) => setVapiApiKey(e.target.value)}
+                type="password"
+              />
+              <p className="text-xs text-gray-500">
+                Enter your Vapi.ai API key for automated calls
+              </p>
+            </div>
+          )}
+
           <Tabs defaultValue="agent" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="agent">Agent</TabsTrigger>
               <TabsTrigger value="stats">Stats</TabsTrigger>
+              <TabsTrigger value="logs">Logs</TabsTrigger>
             </TabsList>
             
             <TabsContent value="agent" className="space-y-4">
+              {/* Company Details Bar */}
+              <CompanyDetailBar onSave={handleSaveCompanyDetails} />
+
               {/* Call Controls */}
               <div className="flex space-x-2">
                 <Button 
@@ -197,6 +307,10 @@ Ready to start your solar journey? Reply to schedule your free home assessment!`
                 <p>• Average talk time: 4.2 min</p>
                 <p>• Interest rate: 68%</p>
               </div>
+            </TabsContent>
+
+            <TabsContent value="logs" className="space-y-4">
+              <CallLogRecord callRecords={callRecords} />
             </TabsContent>
           </Tabs>
         </CardContent>
