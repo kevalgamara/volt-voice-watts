@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { Phone, MessageSquare, Users, Mic, MicOff, Volume2, VolumeX, Settings } 
 import { useToast } from "@/hooks/use-toast";
 import CompanyDetailBar from "./CompanyDetailBar";
 import CallLogRecord from "./CallLogRecord";
-import { vapiService } from "../services/vapiService";
 
 const VoiceAgent = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -21,6 +21,9 @@ const VoiceAgent = () => {
   const [showVapiSettings, setShowVapiSettings] = useState(false);
   const [currentCall, setCurrentCall] = useState<any>(null);
   const { toast } = useToast();
+
+  // Vapi.ai Assistant ID
+  const VAPI_ASSISTANT_ID = '448258e3-a332-4c2b-8346-d51f06e0ec77';
 
   // Call log records state
   const [callRecords, setCallRecords] = useState([
@@ -53,81 +56,118 @@ const VoiceAgent = () => {
     }
   ]);
 
-  const solarScript = {
-    introduction: "Hi! I'm calling from SolarPro AI, your local solar energy specialist. I hope I'm catching you at a good time. We've been helping homeowners in your area save thousands on their electricity bills with solar panels. Have you ever considered going solar for your home?",
-    
-    benefits: [
-      "Did you know that solar panels can reduce your electricity bill by up to 90%? That's potentially thousands of dollars in savings every year!",
-      "Solar panels actually increase your home's value by about 15% on average. It's like getting a return on your investment while saving money monthly.",
-      "With our current financing options, most homeowners start saving money from day one - no upfront costs required!",
-      "Solar panels come with a 25-year warranty, so you're guaranteed decades of clean, free energy from the sun."
-    ],
-    
-    objectionHandlers: {
-      expensive: "I completely understand that concern! The great news is that solar is more affordable than ever. With federal tax credits and our financing options, most families actually save money from month one. Would you like me to calculate potential savings for your specific home?",
-      maintenance: "That's a common question! Solar panels are incredibly low maintenance - they're designed to withstand all weather conditions. Most only need a simple rinse with water once or twice a year. The warranty covers everything else for 25 years!",
-      cloudy: "Great question! Solar panels actually work on cloudy days too - they just produce a bit less energy. Plus, any excess energy you generate on sunny days gets stored in the grid, giving you credits for later use!"
-    }
-  };
-
   const handleStartCall = async () => {
-    if (vapiApiKey && whatsappNumber) {
-      try {
-        vapiService.setApiKey(vapiApiKey);
-        const callResponse = await vapiService.initiateCall({
-          phoneNumber: whatsappNumber,
-          customerName: 'Prospect',
-          companyName: 'SolarPro AI'
-        });
-        
-        setCurrentCall(callResponse);
-        setIsRecording(true);
-        setIsSpeaking(true);
-        
-        toast({
-          title: "Vapi.ai Call Started",
-          description: `AI agent is calling ${whatsappNumber}`,
-        });
-        
-        // Add to call records
-        const newRecord = {
-          id: callResponse.id,
-          clientName: 'New Prospect',
-          phoneNumber: whatsappNumber,
-          duration: '0:00',
-          status: 'completed' as const,
-          timestamp: 'Just now',
-          notes: 'Vapi.ai automated call'
-        };
-        setCallRecords(prev => [newRecord, ...prev]);
-        setCallsToday(prev => prev + 1);
-        
-      } catch (error) {
-        console.error('Vapi.ai call failed:', error);
-        toast({
-          title: "Call Failed",
-          description: "Please check your Vapi.ai API key and try again",
-          variant: "destructive",
-        });
+    if (!vapiApiKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter your Vapi.ai API key in settings",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!whatsappNumber) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please enter the prospect's phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log('Starting Vapi.ai call with assistant:', VAPI_ASSISTANT_ID);
+      
+      const callPayload = {
+        assistantId: VAPI_ASSISTANT_ID,
+        customer: {
+          number: whatsappNumber,
+        },
+      };
+
+      const response = await fetch('https://api.vapi.ai/call/phone', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${vapiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(callPayload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to start call');
       }
-    } else {
-      // Fallback to simulation
+
+      const callData = await response.json();
+      console.log('Vapi.ai call started:', callData);
+      
+      setCurrentCall(callData);
       setIsRecording(true);
       setIsSpeaking(true);
       
       toast({
-        title: "AI Agent Active",
-        description: "Starting solar consultation call...",
+        title: "Vapi.ai Call Started",
+        description: `Solar AI agent is calling ${whatsappNumber}`,
       });
       
-      setTimeout(() => {
-        setIsSpeaking(false);
-        setCurrentMessage(solarScript.introduction);
-      }, 2000);
+      // Add to call records
+      const newRecord = {
+        id: callData.id || Date.now().toString(),
+        clientName: 'New Prospect',
+        phoneNumber: whatsappNumber,
+        duration: '0:00',
+        status: 'completed' as const,
+        timestamp: 'Just now',
+        notes: 'Vapi.ai automated solar consultation'
+      };
+      setCallRecords(prev => [newRecord, ...prev]);
+      setCallsToday(prev => prev + 1);
+
+      // Monitor call status
+      monitorCallStatus(callData.id);
+      
+    } catch (error) {
+      console.error('Vapi.ai call failed:', error);
+      toast({
+        title: "Call Failed",
+        description: error instanceof Error ? error.message : "Please check your API key and try again",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleEndCall = () => {
+  const monitorCallStatus = async (callId: string) => {
+    // Simulate call monitoring
+    setTimeout(() => {
+      setCurrentMessage("Hello! I'm calling from SolarPro AI about solar energy solutions for your home...");
+    }, 3000);
+
+    setTimeout(() => {
+      setIsSpeaking(false);
+      setCurrentMessage("Call in progress - discussing solar benefits and savings...");
+    }, 8000);
+
+    setTimeout(() => {
+      handleEndCall();
+    }, 30000); // Auto-end after 30 seconds for demo
+  };
+
+  const handleEndCall = async () => {
+    if (currentCall && vapiApiKey) {
+      try {
+        await fetch(`https://api.vapi.ai/call/${currentCall.id}/stop`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${vapiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        console.error('Error ending call:', error);
+      }
+    }
+
     setIsRecording(false);
     setIsSpeaking(false);
     setCurrentMessage('');
@@ -215,9 +255,18 @@ Ready to start your solar journey? Reply to schedule your free home assessment!`
                 onChange={(e) => setVapiApiKey(e.target.value)}
                 type="password"
               />
-              <p className="text-xs text-gray-500">
-                Enter your Vapi.ai API key for automated calls
-              </p>
+              <div className="text-xs text-gray-500 space-y-1">
+                <p>Assistant ID: {VAPI_ASSISTANT_ID}</p>
+                <p>Enter your Vapi.ai API key for automated calls</p>
+                <a 
+                  href={`https://dashboard.vapi.ai/assistants/${VAPI_ASSISTANT_ID}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline block"
+                >
+                  View Assistant Dashboard →
+                </a>
+              </div>
             </div>
           )}
 
@@ -231,6 +280,16 @@ Ready to start your solar journey? Reply to schedule your free home assessment!`
             <TabsContent value="agent" className="space-y-4">
               {/* Company Details Bar */}
               <CompanyDetailBar onSave={handleSaveCompanyDetails} />
+
+              {/* Phone Number Input */}
+              <div className="space-y-2">
+                <Input
+                  placeholder="Prospect's phone number (e.g., +1234567890)"
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  type="tel"
+                />
+              </div>
 
               {/* Call Controls */}
               <div className="flex space-x-2">
@@ -266,12 +325,6 @@ Ready to start your solar journey? Reply to schedule your free home assessment!`
 
               {/* WhatsApp Integration */}
               <div className="space-y-2">
-                <Input
-                  placeholder="Prospect's WhatsApp number"
-                  value={whatsappNumber}
-                  onChange={(e) => setWhatsappNumber(e.target.value)}
-                  type="tel"
-                />
                 <Button 
                   onClick={handleSendWhatsApp} 
                   className="w-full bg-green-600 hover:bg-green-700"
@@ -306,6 +359,7 @@ Ready to start your solar journey? Reply to schedule your free home assessment!`
                 <p>• Target: 50 calls/day</p>
                 <p>• Average talk time: 4.2 min</p>
                 <p>• Interest rate: 68%</p>
+                <p>• Using Vapi.ai Assistant</p>
               </div>
             </TabsContent>
 
