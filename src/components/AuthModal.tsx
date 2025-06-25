@@ -20,12 +20,31 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthenticated 
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  // Format phone number for international support
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-numeric characters except +
+    const cleaned = value.replace(/[^\d+]/g, '');
+    
+    // If it doesn't start with +, add it
+    if (cleaned && !cleaned.startsWith('+')) {
+      return '+' + cleaned;
+    }
+    
+    return cleaned;
+  };
+
+  const validatePhoneNumber = (phone: string) => {
+    // International phone number validation - must start with + and have 7-15 digits
+    const phoneRegex = /^\+[1-9]\d{6,14}$/;
+    return phoneRegex.test(phone);
+  };
+
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phoneNumber || phoneNumber.length < 10) {
+    if (!phoneNumber || !validatePhoneNumber(phoneNumber)) {
       toast({
         title: "Invalid Phone Number",
-        description: "Please enter a valid 10-digit phone number",
+        description: "Please enter a valid international phone number (e.g., +1234567890)",
         variant: "destructive",
       });
       return;
@@ -91,16 +110,19 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthenticated 
         {step === 'phone' && (
           <form onSubmit={handleSendOTP} className="space-y-4">
             <div>
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">International Phone Number</Label>
               <Input
                 id="phone"
                 type="tel"
-                placeholder="Enter your 10-digit phone number"
+                placeholder="Enter international phone number (e.g., +1234567890)"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
                 className="mt-1"
                 required
               />
+              <div className="text-xs text-gray-500 mt-1">
+                Supports all countries. Format: +[country code][number]
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Sending OTP..." : "Send Verification Code"}

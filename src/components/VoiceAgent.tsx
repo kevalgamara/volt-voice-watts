@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +55,25 @@ const VoiceAgent = () => {
     }
   ]);
 
+  // Format phone number for international support
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-numeric characters except +
+    const cleaned = value.replace(/[^\d+]/g, '');
+    
+    // If it doesn't start with +, add it
+    if (cleaned && !cleaned.startsWith('+')) {
+      return '+' + cleaned;
+    }
+    
+    return cleaned;
+  };
+
+  const validatePhoneNumber = (phone: string) => {
+    // International phone number validation - must start with + and have 7-15 digits
+    const phoneRegex = /^\+[1-9]\d{6,14}$/;
+    return phoneRegex.test(phone);
+  };
+
   const handleStartCall = async () => {
     if (!vapiApiKey) {
       toast({
@@ -66,10 +84,10 @@ const VoiceAgent = () => {
       return;
     }
 
-    if (!whatsappNumber) {
+    if (!whatsappNumber || !validatePhoneNumber(whatsappNumber)) {
       toast({
-        title: "Phone Number Required",
-        description: "Please enter the prospect's phone number",
+        title: "Invalid Phone Number",
+        description: "Please enter a valid international phone number (e.g., +1234567890)",
         variant: "destructive",
       });
       return;
@@ -180,10 +198,10 @@ const VoiceAgent = () => {
   };
 
   const handleSendWhatsApp = () => {
-    if (!whatsappNumber) {
+    if (!whatsappNumber || !validatePhoneNumber(whatsappNumber)) {
       toast({
-        title: "Phone Number Required",
-        description: "Please enter the prospect's WhatsApp number",
+        title: "Invalid Phone Number",
+        description: "Please enter a valid international phone number (e.g., +1234567890)",
         variant: "destructive",
       });
       return;
@@ -284,11 +302,14 @@ Ready to start your solar journey? Reply to schedule your free home assessment!`
               {/* Phone Number Input */}
               <div className="space-y-2">
                 <Input
-                  placeholder="Prospect's phone number (e.g., +1234567890)"
+                  placeholder="International phone number (e.g., +1234567890)"
                   value={whatsappNumber}
-                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  onChange={(e) => setWhatsappNumber(formatPhoneNumber(e.target.value))}
                   type="tel"
                 />
+                <div className="text-xs text-gray-500">
+                  Supports all international numbers. Format: +[country code][number]
+                </div>
               </div>
 
               {/* Call Controls */}
