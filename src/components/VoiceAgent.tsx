@@ -1,14 +1,15 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Phone, MessageSquare, Users, Mic, MicOff, Volume2, VolumeX, Settings, AlertCircle } from "lucide-react";
+import { Phone, MessageSquare, Users, Mic, MicOff, Volume2, VolumeX, Settings, AlertCircle, Calculator, UserPlus, PhoneCall } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CompanyDetailBar from "./CompanyDetailBar";
 import CallLogRecord from "./CallLogRecord";
+import ClientRegistration from "./ClientRegistration";
+import ProfitCalculator from "./ProfitCalculator";
 
 const VoiceAgent = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -17,13 +18,16 @@ const VoiceAgent = () => {
   const [conversions, setConversions] = useState(7);
   const [currentMessage, setCurrentMessage] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
-  const [vapiApiKey, setVapiApiKey] = useState('');
+  const [vapiApiKey, setVapiApiKey] = useState('3eff8910-7f1e-4533-b4b9-24fe0e0c51d3');
   const [showVapiSettings, setShowVapiSettings] = useState(false);
   const [currentCall, setCurrentCall] = useState<any>(null);
+  const [clientList, setClientList] = useState<any[]>([]);
+  const [isCallingClientList, setIsCallingClientList] = useState(false);
   const { toast } = useToast();
 
-  // Vapi.ai Assistant ID for Solar Sales
+  // Vapi.ai Configuration
   const VAPI_ASSISTANT_ID = '448258e3-a332-4c2b-8346-d51f06e0ec77';
+  const VAPI_PHONE_NUMBER_ID = '5bbf004f-3258-4586-aab5-2e78fdbc80a0';
 
   // Call log records state
   const [callRecords, setCallRecords] = useState([
@@ -79,7 +83,7 @@ const VoiceAgent = () => {
     if (!vapiApiKey || vapiApiKey.length < 10) {
       toast({
         title: "Valid API Key Required",
-        description: "Please enter a valid Vapi.ai API key in settings. Get one from dashboard.vapi.ai",
+        description: "Please enter a valid Vapi.ai API key in settings.",
         variant: "destructive",
       });
       setShowVapiSettings(true);
@@ -100,6 +104,7 @@ const VoiceAgent = () => {
       
       const callPayload = {
         assistantId: VAPI_ASSISTANT_ID,
+        phoneNumberId: VAPI_PHONE_NUMBER_ID,
         customer: {
           number: whatsappNumber,
         },
@@ -128,10 +133,9 @@ const VoiceAgent = () => {
       
       toast({
         title: "🌞 Solar AI Agent Active",
-        description: `AI agent is now calling ${whatsappNumber} to discuss solar benefits!`,
+        description: `AI agent is now calling ${whatsappNumber} to discuss solar benefits and registration!`,
       });
       
-      // Add to call records
       const newRecord = {
         id: callData.id || Date.now().toString(),
         clientName: 'Solar Prospect',
@@ -139,12 +143,11 @@ const VoiceAgent = () => {
         duration: '0:00',
         status: 'completed' as const,
         timestamp: 'Just now',
-        notes: 'AI discussing solar benefits and savings potential'
+        notes: 'AI discussing solar benefits and client registration'
       };
       setCallRecords(prev => [newRecord, ...prev]);
       setCallsToday(prev => prev + 1);
 
-      // Simulate solar conversation flow
       simulateSolarConversation();
       
     } catch (error) {
@@ -161,11 +164,11 @@ const VoiceAgent = () => {
 
   const simulateSolarConversation = () => {
     const solarMessages = [
-      "Hi! I'm calling from SolarPro AI. Did you know you could save up to 90% on your electricity bills with solar?",
-      "Let me tell you about our amazing solar benefits - you could save $1,500+ per year!",
-      "Solar panels increase your home value by 15% and you get a 30% federal tax credit!",
-      "We offer $0 down financing with 25-year warranty. You start saving from day one!",
-      "Would you like me to send you our company details and schedule a free solar assessment?"
+      "Hi! I'm calling from SolarPro AI. Would you like to register for our client program and learn about solar savings?",
+      "Great! Let me register you in our system and tell you about our amazing solar benefits.",
+      "You could save up to 90% on electricity bills with our solar solutions!",
+      "We offer $0 down financing with 25-year warranty. Plus, get 30% federal tax credit!",
+      "Would you like me to calculate your potential profit and send you our complete solar package?"
     ];
 
     solarMessages.forEach((message, index) => {
@@ -175,10 +178,60 @@ const VoiceAgent = () => {
       }, (index + 1) * 4000);
     });
 
-    // Auto-end call after conversation
     setTimeout(() => {
       handleEndCall();
     }, solarMessages.length * 4000 + 2000);
+  };
+
+  const handleCallClientList = async () => {
+    if (clientList.length === 0) {
+      toast({
+        title: "No Clients Registered",
+        description: "Please register some clients first before calling them.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCallingClientList(true);
+    
+    for (const client of clientList) {
+      try {
+        const callPayload = {
+          assistantId: VAPI_ASSISTANT_ID,
+          phoneNumberId: VAPI_PHONE_NUMBER_ID,
+          customer: {
+            number: client.phone,
+          },
+        };
+
+        await fetch('https://api.vapi.ai/call/phone', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${vapiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(callPayload),
+        });
+
+        toast({
+          title: `Calling ${client.name}`,
+          description: `AI agent is now calling ${client.phone}`,
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+      } catch (error) {
+        console.error(`Failed to call ${client.name}:`, error);
+      }
+    }
+
+    setIsCallingClientList(false);
+    setCallsToday(prev => prev + clientList.length);
+    toast({
+      title: "Client List Called",
+      description: `Successfully called ${clientList.length} registered clients!`,
+    });
   };
 
   const handleEndCall = async () => {
@@ -261,7 +314,6 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
     
     setConversions(prev => prev + 1);
     
-    // Update call record with conversion
     setCallRecords(prev => 
       prev.map(record => 
         record.phoneNumber === whatsappNumber 
@@ -281,6 +333,14 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
     });
   };
 
+  const handleClientRegistered = (client: any) => {
+    setClientList(prev => [...prev, client]);
+    toast({
+      title: "Client Registered",
+      description: `${client.name} has been added to the client list`,
+    });
+  };
+
   return (
     <div className="fixed bottom-4 right-4 z-50">
       <Card className="w-96 shadow-2xl border-2 border-yellow-200 max-h-[80vh] overflow-y-auto bg-gradient-to-br from-yellow-50 to-orange-50">
@@ -292,7 +352,7 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
             </span>
             <div className="flex items-center space-x-2">
               <Badge variant={isRecording ? "default" : "secondary"} className="bg-white/20 text-white">
-                {isRecording ? "🔥 Selling Solar" : "💤 Standby"}
+                {isRecording ? "🔥 Active Call" : "💤 Standby"}
               </Badge>
               <Button
                 variant="ghost"
@@ -307,7 +367,6 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
         </CardHeader>
         
         <CardContent className="space-y-4 p-4">
-          {/* Vapi.ai Settings */}
           {showVapiSettings && (
             <div className="space-y-2 border-b pb-4 bg-blue-50 p-3 rounded-lg">
               <div className="flex items-center space-x-2 mb-2">
@@ -322,33 +381,25 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
                 className="border-blue-200"
               />
               <div className="text-xs text-blue-600 space-y-1">
-                <p>• Solar Assistant ID: {VAPI_ASSISTANT_ID}</p>
-                <p>• Get API key from dashboard.vapi.ai</p>
-                <p>• Assistant trained for solar sales conversations</p>
-                <a 
-                  href={`https://dashboard.vapi.ai/assistants/${VAPI_ASSISTANT_ID}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:underline block"
-                >
-                  🔗 View Solar Assistant Dashboard →
-                </a>
+                <p>• Phone Number ID: {VAPI_PHONE_NUMBER_ID}</p>
+                <p>• Assistant ID: {VAPI_ASSISTANT_ID}</p>
+                <p>• Configured for solar sales & client registration</p>
               </div>
             </div>
           )}
 
           <Tabs defaultValue="agent" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="agent">🌞 Agent</TabsTrigger>
+              <TabsTrigger value="clients">👥 Clients</TabsTrigger>
+              <TabsTrigger value="calculator">🧮 Profit</TabsTrigger>
               <TabsTrigger value="stats">📊 Stats</TabsTrigger>
               <TabsTrigger value="logs">📋 Logs</TabsTrigger>
             </TabsList>
             
             <TabsContent value="agent" className="space-y-4">
-              {/* Company Details Bar */}
               <CompanyDetailBar onSave={handleSaveCompanyDetails} />
 
-              {/* Phone Number Input */}
               <div className="space-y-2">
                 <Input
                   placeholder="International phone (E.164): +12345678901"
@@ -362,7 +413,6 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
                 </div>
               </div>
 
-              {/* Call Controls */}
               <div className="flex space-x-2">
                 <Button 
                   onClick={isRecording ? handleEndCall : handleStartCall}
@@ -372,7 +422,7 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
                   {isRecording ? (
                     <>
                       <MicOff className="h-4 w-4 mr-1" />
-                      End Solar Call
+                      End Call
                     </>
                   ) : (
                     <>
@@ -386,7 +436,16 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
                 </Button>
               </div>
 
-              {/* Current Solar Message */}
+              <Button 
+                onClick={handleCallClientList}
+                disabled={isCallingClientList || clientList.length === 0}
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                size="sm"
+              >
+                <PhoneCall className="h-4 w-4 mr-1" />
+                {isCallingClientList ? "Calling Clients..." : `Call All Clients (${clientList.length})`}
+              </Button>
+
               {currentMessage && (
                 <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-3 rounded-lg border border-yellow-200">
                   <p className="text-sm text-orange-800 font-medium mb-1">🌞 Solar AI Agent:</p>
@@ -397,12 +456,11 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
                       <div className="rounded-full bg-orange-400 h-2 w-2"></div>
                       <div className="rounded-full bg-orange-400 h-2 w-2"></div>
                     </div>
-                    <span className="ml-2">AI speaking about solar benefits...</span>
+                    <span className="ml-2">AI speaking about solar & registration...</span>
                   </div>
                 </div>
               )}
 
-              {/* Solar WhatsApp Integration */}
               <div className="space-y-2">
                 <Button 
                   onClick={handleSendWhatsApp} 
@@ -416,6 +474,30 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
                   Includes savings calculator, company info & next steps
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="clients" className="space-y-4">
+              <ClientRegistration onClientRegistered={handleClientRegistered} />
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <h4 className="font-medium mb-2">Registered Clients ({clientList.length})</h4>
+                {clientList.length === 0 ? (
+                  <p className="text-sm text-gray-500">No clients registered yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {clientList.map((client, index) => (
+                      <div key={index} className="bg-white p-2 rounded border text-sm">
+                        <div className="font-medium">{client.name}</div>
+                        <div className="text-gray-600">{client.phone}</div>
+                        <div className="text-xs text-gray-500">{client.email}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="calculator" className="space-y-4">
+              <ProfitCalculator callsToday={callsToday} conversions={conversions} />
             </TabsContent>
             
             <TabsContent value="stats" className="space-y-4">
@@ -443,6 +525,7 @@ Reply "YES" to schedule your FREE solar assessment or call us directly!
                 <p>💡 Solar interest rate: 78%</p>
                 <p>🤖 Using Vapi.ai Solar Assistant</p>
                 <p>💰 Avg deal size: $25,000</p>
+                <p>👥 Registered clients: {clientList.length}</p>
               </div>
             </TabsContent>
 
